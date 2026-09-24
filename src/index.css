@@ -1,0 +1,107 @@
+:root {
+  --bg: #faf4ee;
+  --bg-soft: #f7f0e8;
+  --surface: #ffffff;
+  --surface-alt: #f4ede4;
+
+  --text: #2c2733;
+  --text-muted: #8a8395;
+  --text-faint: #b3acbd;
+
+  --primary: #a99cdb;
+  --primary-dark: #8a7bc4;
+  --primary-soft: #e3ddf4;
+  --primary-contrast: #ffffff;
+
+  --mood-great-bg: #cbe3c3;
+  --mood-great-ring: #a8d19c;
+  --mood-good-bg: #bfe1ec;
+  --mood-good-ring: #2c2733;
+  --mood-okay-bg: #f3d9be;
+  --mood-low-bg: #cabfe6;
+  --mood-rough-bg: #e9a99b;
+
+  --accent-green-bg: #cce6c2;
+  --accent-green-text: #3c6b34;
+  --accent-peach: #f3d9be;
+  --accent-peach-text: #8a5a2b;
+  --accent-blue: #bfe1ec;
+  --accent-blue-text: #2c6a80;
+
+  --danger: #e08a6f;
+  --success: #6fb583;
+
+  --border: #ece3d8;
+  --shadow: 0 8px 24px rgba(60, 40, 80, 0.06);
+  --shadow-lg: 0 16px 40px rgba(60, 40, 80, 0.12);
+
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --radius-pill: 999px;
+
+  --font-heading: "Baloo 2", "Nunito", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100%;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  margin: 0;
+  color: var(--text);
+}
+
+p {
+  margin: 0;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--radius-pill);
+}
