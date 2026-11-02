@@ -20,6 +20,8 @@ import copingRoutes from "./routes/coping.js";
 export function createApp() {
   const app = express();
 
+  // Behind Vercel's proxy, so rate limits count each visitor's real address.
+  app.set("trust proxy", 1);
   app.disable("x-powered-by");
   app.use(helmet());
   app.use(cors({ origin: config.clientOrigin, credentials: true }));
