@@ -1,14 +1,15 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useApp, fmt } from "../context/AppContext.jsx";
+import { api, errorMessage } from "../api/client.js";
 import { IconCheck } from "../components/Icons.jsx";
+import { HelplineList, ResourceCard } from "../components/SupportLists.jsx";
+import { toISODate } from "../lib/dates.js";
 
 const OPTIONS = ["Not at all", "Several days", "More than half the days", "Nearly every day"];
 
 const BANKS = {
   phq9: {
     label: "PHQ-9",
-    title: "Depression",
     questions: [
       "Over the past 2 weeks, how often have you had little interest or pleasure in doing things?",
       "Over the past 2 weeks, how often have you felt down, depressed, or hopeless?",
@@ -20,18 +21,9 @@ const BANKS = {
       "Over the past 2 weeks, how often have others noticed you moving or speaking unusually slowly, or being fidgety and restless?",
       "Over the past 2 weeks, how often have you had thoughts that you'd be better off dead, or of hurting yourself?",
     ],
-    ranges: [
-      [0, 4, "Minimal"],
-      [5, 9, "Mild"],
-      [10, 14, "Moderate"],
-      [15, 19, "Moderately severe"],
-      [20, 27, "Severe"],
-    ],
-    sensitiveIndex: 8,
   },
   gad7: {
     label: "GAD-7",
-    title: "Anxiety",
     questions: [
       "Over the past 2 weeks, how often have you felt nervous, anxious, or on edge?",
       "Over the past 2 weeks, how often have you been unable to stop or control worrying?",
@@ -41,59 +33,47 @@ const BANKS = {
       "Over the past 2 weeks, how often have you become easily annoyed or irritable?",
       "Over the past 2 weeks, how often have you felt afraid, as if something awful might happen?",
     ],
-    ranges: [
-      [0, 4, "Minimal"],
-      [5, 9, "Mild"],
-      [10, 14, "Moderate"],
-      [15, 21, "Severe"],
-    ],
-    sensitiveIndex: -1,
   },
 };
 
-function severityFor(bank, score) {
-  const found = bank.ranges.find(([lo, hi]) => score >= lo && score <= hi);
-  return found ? found[2] : "—";
-}
-
 export default function Screening() {
   const { type } = useParams();
-  const bank = BANKS[type] ?? BANKS.phq9;
+  const key = BANKS[type] ? type : "phq9";
+  const bank = BANKS[key];
   const navigate = useNavigate();
-  const { addScreening } = useApp();
 
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState(() => Array(bank.questions.length).fill(null));
-  const [done, setDone] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const total = bank.questions.length;
   const pct = Math.round(((index + 1) / total) * 100);
+  const answer = answers[index];
 
-  const score = useMemo(() => answers.reduce((sum, a) => sum + (a ?? 0), 0), [answers]);
-
-  const flagged = bank.sensitiveIndex >= 0 && (answers[bank.sensitiveIndex] ?? 0) > 0;
-
-  const selectAnswer = (val) => {
+  const selectAnswer = (val) =>
     setAnswers((a) => {
       const next = [...a];
       next[index] = val;
       return next;
     });
-  };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (index < total - 1) {
       setIndex((i) => i + 1);
-    } else {
-      const max = bank.ranges[bank.ranges.length - 1][1];
-      addScreening({
-        type: bank.label,
-        date: fmt(new Date()).slice(5).replace("-", "/"),
-        score,
-        max,
-        label: severityFor(bank, score),
-      });
-      setDone(true);
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      // The server scores the answers and returns the result; it is the source of truth.
+      const res = await api.post("/screenings", { type: key, answers, today: toISODate() });
+      setResult(res);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -102,29 +82,40 @@ export default function Screening() {
     else setIndex((i) => i - 1);
   };
 
-  if (done) {
-    const max = bank.ranges[bank.ranges.length - 1][1];
-    const label = severityFor(bank, score);
+  if (result) {
+    const { screening, support } = result;
     return (
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
         <div style={{ flex: 1 }}>
           <div className="result-badge">✓</div>
-          <div className="result-score">{score} / {max}</div>
-          <p className="result-label">{bank.label} — {label}</p>
+          <div className="result-score">{screening.score} / {screening.max}</div>
+          <p className="result-label">{screening.type} · {screening.severity}</p>
 
-          {flagged && (
+          {support.helplines.length > 0 && (
             <div className="safety-note">
-              It looks like you've been having some heavy thoughts. You don't have to carry this alone —
-              please consider reaching out to a crisis line or someone you trust right now. In the US, you can
-              call or text <strong>988</strong> anytime.
+              <strong>{support.headline}</strong>
+              <p style={{ margin: "6px 0 14px" }}>{support.message}</p>
+              <HelplineList helplines={support.helplines} />
+            </div>
+          )}
+
+          {support.helplines.length === 0 && support.platforms.length > 0 && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <h3>{support.headline}</h3>
+              <p className="card-subtext">{support.message}</p>
+              <div className="stack">
+                {support.platforms.map((p) => (
+                  <ResourceCard key={p.id} item={p} actionLabel="Visit" />
+                ))}
+              </div>
             </div>
           )}
 
           <div className="card">
             <h3>What this means</h3>
             <p className="card-subtext" style={{ marginBottom: 0 }}>
-              This screening is a gentle check-in, not a diagnosis. Your result has been saved to your
-              Wellness Trends so you and your clinician can track it over time.
+              This screening is a gentle check-in, not a diagnosis. Your result has been saved to your Wellness
+              Trends so you and your clinician can track it over time.
             </p>
           </div>
         </div>
@@ -138,9 +129,6 @@ export default function Screening() {
     );
   }
 
-  const question = bank.questions[index];
-  const answer = answers[index];
-
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
       <div style={{ flex: 1 }}>
@@ -152,7 +140,7 @@ export default function Screening() {
           <div className="progress-fill" style={{ width: `${pct}%` }} />
         </div>
 
-        <h2 className="screening-question">{question}</h2>
+        <h2 className="screening-question">{bank.questions[index]}</h2>
 
         <div className="option-list">
           {OPTIONS.map((opt, i) => (
@@ -166,12 +154,13 @@ export default function Screening() {
             </button>
           ))}
         </div>
+        {error && <p className="form-error" role="alert" style={{ marginTop: 16 }}>{error}</p>}
       </div>
 
       <div className="screening-footer btn-row">
-        <button className="btn btn-secondary" onClick={handleBack}>Back</button>
-        <button className="btn btn-primary" onClick={handleNext} disabled={answer === null}>
-          {index === total - 1 ? "See Results" : "Next Question"}
+        <button className="btn btn-secondary" onClick={handleBack} disabled={submitting}>Back</button>
+        <button className="btn btn-primary" onClick={handleNext} disabled={answer === null || submitting}>
+          {submitting ? "Saving..." : index === total - 1 ? "See Results" : "Next Question"}
         </button>
       </div>
     </div>

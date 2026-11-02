@@ -15,15 +15,21 @@ import Trends from "./pages/Trends.jsx";
 import Coping from "./pages/Coping.jsx";
 import BookSupport from "./pages/BookSupport.jsx";
 import Profile from "./pages/Profile.jsx";
+import Support from "./pages/Support.jsx";
+
+function Splash() {
+  return <div className="splash">💜 MindMate</div>;
+}
 
 function RequireAuth({ children }) {
-  const { state } = useApp();
-  if (!state.authed) return <Navigate to="/" replace />;
+  const { user, loading } = useApp();
+  if (loading) return <Splash />;
+  if (!user) return <Navigate to="/" replace />;
   return children;
 }
 
 export default function App() {
-  const { state } = useApp();
+  const { user, loading } = useApp();
 
   return (
     <BrowserRouter>
@@ -31,7 +37,7 @@ export default function App() {
         <Route element={<FocusLayout />}>
           <Route
             path="/"
-            element={state.authed ? <Navigate to="/home" replace /> : <Onboarding />}
+            element={loading ? <Splash /> : user ? <Navigate to="/home" replace /> : <Onboarding />}
           />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
@@ -94,6 +100,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <BookSupport />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/support"
+            element={
+              <RequireAuth>
+                <Support />
               </RequireAuth>
             }
           />

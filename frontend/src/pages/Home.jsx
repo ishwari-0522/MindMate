@@ -1,6 +1,13 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useApp, MOODS, moodValue, fmt } from "../context/AppContext.jsx";
+import { useApp, MOODS, moodValue } from "../context/AppContext.jsx";
+import { api } from "../api/client.js";
+import { useAsync } from "../api/useAsync.js";
+import { addDaysISO, toISODate } from "../lib/dates.js";
 import { IconClipboard, IconChat, IconChevronRight, IconWave, IconHeart } from "../components/Icons.jsx";
+import { HelplineList } from "../components/SupportLists.jsx";
+import SupportAlert from "../components/SupportAlert.jsx";
+import { useSupportAlert } from "../api/useSupportAlert.js";
 
 function greeting() {
   const h = new Date().getHours();
@@ -9,49 +16,68 @@ function greeting() {
   return "Good evening";
 }
 
+const average = (nums) => (nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null);
+
 export default function Home() {
-  const { state, logMood } = useApp();
-  const today = fmt(new Date());
-  const todayMood = state.moodEntries.find((m) => m.date === today)?.mood;
+  const { user } = useApp();
+  const today = toISODate();
+  const from = addDaysISO(today, -13);
+  const { data, error, setData } = useAsync(() => api.get(`/moods?from=${from}&to=${today}`), [from, today]);
+  const [saveError, setSaveError] = useState("");
+  const guidance = useAsync(() => api.get(`/support/guidance?today=${today}`), [today, data]);
+  const g = guidance.data;
+  const supportAlert = useSupportAlert();
+  const checkAlert = supportAlert.check;
+
+  // Opening Home is a natural moment to tell someone support is available (once per level per day).
+  useEffect(() => {
+    checkAlert();
+  }, [checkAlert]);
+
+  const moods = data?.moods ?? [];
+  const byDate = new Map(moods.map((m) => [m.date, m.mood]));
+  const todayMood = byDate.get(today);
+
+  const logMood = async (mood) => {
+    const previous = data;
+    setSaveError("");
+    setData({ moods: [...moods.filter((m) => m.date !== today), { date: today, mood }] });
+    try {
+      await api.put(`/moods/${today}`, { mood });
+    } catch {
+      setData(previous);
+      setSaveError("Couldn't save your mood. Please try again.");
+      return;
+    }
+    checkAlert();
+  };
 
   const last7 = [...Array(7)].map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    const key = fmt(d);
-    const entry = state.moodEntries.find((m) => m.date === key);
-    return { key, value: entry ? moodValue(entry.mood) : 0, isToday: key === today };
+    const key = addDaysISO(today, -(6 - i));
+    const mood = byDate.get(key);
+    return { key, value: mood ? moodValue(mood) : 0, isToday: key === today };
   });
+  const currentAvg = average(last7.filter((d) => d.value > 0).map((d) => d.value));
+  const previousAvg = average(
+    [...Array(7)].map((_, i) => byDate.get(addDaysISO(today, -(7 + i)))).filter(Boolean).map(moodValue)
+  );
 
-  const prev7Avg = (() => {
-    const vals = [];
-    for (let i = 13; i >= 7; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const entry = state.moodEntries.find((m) => m.date === fmt(d));
-      if (entry) vals.push(moodValue(entry.mood));
-    }
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-  })();
-
-  const curr7Vals = last7.filter((d) => d.value > 0).map((d) => d.value);
-  const curr7Avg = curr7Vals.length ? curr7Vals.reduce((a, b) => a + b, 0) / curr7Vals.length : null;
-
-  let changeLabel = "Keep checking in to see your trend";
   let changePct = null;
-  if (prev7Avg && curr7Avg) {
-    const pct = Math.round(((curr7Avg - prev7Avg) / prev7Avg) * 100);
-    changePct = pct;
-    changeLabel = pct >= 0 ? `Mood stability improved by ${pct}%` : `Stress levels decreased by ${Math.abs(pct)}%`;
+  let changeLabel = "Check in a few days in a row to see your trend";
+  if (currentAvg && previousAvg) {
+    changePct = Math.round(((currentAvg - previousAvg) / previousAvg) * 100);
+    changeLabel =
+      changePct >= 0 ? `Mood stability improved by ${changePct}%` : `Mood dipped ${Math.abs(changePct)}% from last week`;
   }
 
   return (
     <div>
       <div className="home-header">
         <div>
-          <h1>{greeting()}, {state.user.firstName || "there"} ☀️</h1>
+          <h1>{greeting()}, {user.firstName} ☀️</h1>
           <p>We are so glad you are here today.</p>
         </div>
-        <div className="avatar">{state.user.initials || "U"}</div>
+        <div className="avatar">{user.initials}</div>
       </div>
 
       <div className="card">
@@ -68,7 +94,30 @@ export default function Home() {
             </button>
           ))}
         </div>
+        {(saveError || error) && <p className="form-error" role="alert">{saveError || error.message}</p>}
       </div>
+
+      {g && g.level >= 3 && (
+        <div className="card support-banner support-banner--l3" style={{ marginTop: 16 }}>
+          <h3>{g.headline}</h3>
+          <p className="card-subtext">{g.message}</p>
+          <HelplineList helplines={g.helplines.slice(0, 2)} />
+          <Link to="/support" className="link-btn" style={{ display: "inline-block", marginTop: 14 }}>
+            See all support options
+          </Link>
+        </div>
+      )}
+
+      {g && g.level >= 1 && g.level < 3 && (
+        <Link to="/support" className={`action-card support-card support-card--l${g.level}`} style={{ marginTop: 16 }}>
+          <div className="action-icon">{g.level === 2 ? "🤝" : "🌿"}</div>
+          <div className="action-body">
+            <h4>{g.headline}</h4>
+            <p>{g.message}</p>
+          </div>
+          <span className="chevron"><IconChevronRight /></span>
+        </Link>
+      )}
 
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-head-row">
@@ -119,6 +168,17 @@ export default function Home() {
         <span className="chevron"><IconChevronRight /></span>
       </Link>
 
+      {(!g || g.level === 0) && (
+        <Link to="/support" className="action-card action-card--white" style={{ marginTop: 16 }}>
+          <div className="action-icon" style={{ background: "var(--mood-great-bg)" }}>🌿</div>
+          <div className="action-body">
+            <h4>Support &amp; Resources</h4>
+            <p>Ideas, places to go, and people to talk to.</p>
+          </div>
+          <span className="chevron"><IconChevronRight /></span>
+        </Link>
+      )}
+
       <Link to="/book" className="action-card action-card--white" style={{ marginTop: 16 }}>
         <div className="action-icon" style={{ background: "var(--mood-low-bg)" }}>
           <IconHeart />
@@ -129,6 +189,8 @@ export default function Home() {
         </div>
         <span className="chevron"><IconChevronRight /></span>
       </Link>
+
+      <SupportAlert guidance={supportAlert.alert} onClose={supportAlert.dismiss} />
     </div>
   );
 }

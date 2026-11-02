@@ -1,0 +1,439 @@
+:root {
+  --font-journal: "Caveat", "Segoe Script", "Bradley Hand", cursive;
+}
+
+/* ---------- Journal calendar showing the written text ---------- */
+.cal-grid {
+  gap: 6px;
+}
+
+.cal-cell {
+  aspect-ratio: auto;
+  min-height: 68px;
+  padding: 5px 5px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
+.cal-cell--filled {
+  border-color: transparent;
+}
+
+.cal-day {
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(44, 39, 51, 0.55);
+}
+
+.cal-note {
+  font-family: var(--font-journal);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.05;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.cal-more {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: var(--radius-pill);
+  padding: 0 5px;
+}
+
+@media (min-width: 860px) {
+  .cal-grid {
+    gap: 8px;
+  }
+  .app-shell--wide .cal-cell {
+    min-height: 108px;
+    padding: 8px 10px;
+  }
+  .app-shell--wide .cal-day {
+    font-size: 12px;
+  }
+  .app-shell--wide .cal-note {
+    font-size: 19px;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+  }
+}
+
+/* ---------- Guided coping exercises ---------- */
+.modal-sheet--tall {
+  max-height: 92vh;
+}
+
+.guide-intro {
+  color: var(--text-muted);
+  line-height: 1.55;
+  font-size: 14.5px;
+  margin-bottom: 14px;
+}
+
+.guide-meta {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.guide-meta span {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+}
+
+.guide-heading {
+  font-size: 17px;
+  margin: 16px 0 6px;
+}
+
+.guide-steps {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.guide-steps li {
+  counter-increment: step;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--border);
+}
+
+.guide-steps li::before {
+  content: counter(step);
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guide-caution {
+  background: #fff6e5;
+  color: #7a5a16;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 18px;
+}
+
+.guide-run {
+  text-align: center;
+}
+
+.guide-position {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 10px 0 0;
+}
+
+.guide-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 240px;
+}
+
+.guide-circle {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #d9d0f3, var(--primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(169, 156, 219, 0.45);
+}
+
+.guide-circle--breath {
+  transition-property: transform;
+  transition-timing-function: ease-in-out;
+}
+
+.guide-count {
+  font-family: var(--font-heading);
+  font-size: 44px;
+  font-weight: 800;
+}
+
+.guide-phase {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.guide-instruction {
+  color: var(--text-muted);
+  font-size: 14.5px;
+  min-height: 22px;
+  margin-bottom: 20px;
+}
+
+.guide-controls .btn {
+  padding: 14px 10px;
+  font-size: 15px;
+}
+
+.guide-done {
+  text-align: center;
+}
+
+.guide-closing {
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 4px 0 24px;
+}
+
+/* ---------- Support & resources ---------- */
+.resource-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+
+.resource-card h4 {
+  font-size: 15.5px;
+  margin-bottom: 4px;
+}
+
+.resource-card p {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.resource-link {
+  flex-shrink: 0;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  padding: 9px 14px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.helpline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.helpline {
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  border: 1.5px solid #f1d9d0;
+  text-align: left;
+}
+
+.helpline--emergency {
+  border-color: var(--danger);
+}
+
+.helpline h4 {
+  font-size: 15.5px;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.helpline p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.helpline .helpline-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.helpline-call {
+  flex-shrink: 0;
+  background: var(--danger);
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+  padding: 12px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.support-banner--l1 { background: #f1f7ec; }
+.support-banner--l2 { background: #fff6e5; }
+.support-banner--l3 { background: #fdece6; }
+
+.support-card--l1 { background: #e6f2dc; }
+.support-card--l2 { background: #fbe8cd; }
+
+.support-card .action-icon {
+  font-size: 22px;
+}
+
+.support-card .action-body p {
+  color: #5b5348;
+}
+
+.support-reasons {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.support-reasons span {
+  display: block;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.support-reasons ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.5;
+}
+
+.support-alert-reason {
+  font-weight: 700;
+  font-size: 14.5px;
+  margin-bottom: 8px;
+}
+
+.support-ask {
+  margin-top: 24px;
+}
+
+.support-disclaimer {
+  font-size: 12px;
+  color: var(--text-faint);
+  text-align: center;
+  margin-top: 28px;
+  line-height: 1.5;
+}
+
+.safety-note strong {
+  display: block;
+  font-size: 15px;
+}
+
+/* ---------- Week arrows on the Trends chart ---------- */
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.week-nav-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.25;
+}
+
+.week-nav-label strong {
+  font-size: 14px;
+}
+
+.week-nav-label small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ---------- Weekday vs weekend ---------- */
+.pattern-bars {
+  display: flex;
+  gap: 14px;
+  justify-content: space-around;
+  margin: 14px 0 6px;
+}
+
+.pattern-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.pattern-col strong {
+  font-size: 20px;
+}
+
+.pattern-track {
+  width: 100%;
+  max-width: 56px;
+  height: 90px;
+  background: var(--bg-soft);
+  border-radius: 14px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.pattern-fill {
+  width: 100%;
+  background: var(--accent-blue);
+  border-radius: 14px;
+}
+
+.pattern-note {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 10px;
+}

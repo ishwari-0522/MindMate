@@ -40,9 +40,10 @@ const TABS = [
   { to: "/profile", key: "profile", label: "Profile" },
 ];
 
-export default function BottomNav() {
+// desktopOnly: show as the left sidebar on wide screens only (the phone chat keeps its full height).
+export default function BottomNav({ desktopOnly = false }) {
   return (
-    <nav className="bottom-nav">
+    <nav className={"bottom-nav" + (desktopOnly ? " bottom-nav--desktop-only" : "")}>
       <div className="sidebar-brand">
         <span className="sidebar-brand-mark">💜</span>
         MindMate

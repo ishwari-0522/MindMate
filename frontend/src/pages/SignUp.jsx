@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext.jsx";
+import { errorMessage } from "../api/client.js";
 import { IconLock, IconEye, IconEyeOff } from "../components/Icons.jsx";
 
 export default function SignUp() {
@@ -10,14 +11,24 @@ export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = firstName.trim().length > 0 && email.trim().length > 3 && password.length >= 4;
+  const canSubmit = firstName.trim().length > 0 && email.trim().length > 3 && password.length >= 8;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!canSubmit) return;
-    signUp({ firstName: firstName.trim(), email: email.trim() });
-    navigate("/home");
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await signUp({ firstName: firstName.trim(), email: email.trim(), password });
+      navigate("/home");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -33,7 +44,8 @@ export default function SignUp() {
           <input
             id="firstName"
             className="input"
-            placeholder="Asavari"
+            placeholder="Name"
+            autoComplete="given-name"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
           />
@@ -45,7 +57,9 @@ export default function SignUp() {
             id="email"
             type="email"
             className="input"
-            placeholder="asavari@design.com"
+            placeholder="Email"
+            autoComplete="email"
+            required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -58,7 +72,8 @@ export default function SignUp() {
               id="password"
               type={showPassword ? "text" : "password"}
               className="input"
-              placeholder="••••••••••••"
+              placeholder="At least 8 characters"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -78,23 +93,14 @@ export default function SignUp() {
           <span>Your data is 100% private, clinically encrypted, and HIPAA-compliant.</span>
         </div>
 
-        <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-          Create Private Account
+        {error && <p className="form-error" role="alert">{error}</p>}
+
+        <button type="submit" className="btn btn-primary" disabled={!canSubmit || submitting}>
+          {submitting ? "Creating account..." : "Create Private Account"}
         </button>
       </form>
 
-      <p className="divider-text">or sign up with</p>
-
-      <div className="oauth-row">
-        <button className="oauth-btn" type="button" onClick={() => { signUp({ firstName: "Asavari", email: "asavari@mindmate.co" }); navigate("/home"); }}>
-          Google
-        </button>
-        <button className="oauth-btn" type="button" onClick={() => { signUp({ firstName: "Asavari", email: "asavari@mindmate.co" }); navigate("/home"); }}>
-          Apple
-        </button>
-      </div>
-
-      <p className="auth-footer">
+      <p className="auth-footer" style={{ marginTop: 26 }}>
         Already have an account? <Link to="/login" className="link-btn">Log in</Link>
       </p>
     </div>

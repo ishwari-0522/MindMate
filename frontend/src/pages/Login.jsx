@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext.jsx";
+import { errorMessage } from "../api/client.js";
 import { IconEye, IconEyeOff } from "../components/Icons.jsx";
 
 export default function Login() {
@@ -9,14 +10,24 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = email.trim().length > 3 && password.length >= 4;
+  const canSubmit = email.trim().length > 3 && password.length > 0;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!canSubmit) return;
-    logIn(email.trim());
-    navigate("/home");
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await logIn({ email: email.trim(), password });
+      navigate("/home");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -33,7 +44,9 @@ export default function Login() {
             id="email"
             type="email"
             className="input"
-            placeholder="asavari@design.com"
+            placeholder="Email"
+            autoComplete="email"
+            required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -46,7 +59,8 @@ export default function Login() {
               id="password"
               type={showPassword ? "text" : "password"}
               className="input"
-              placeholder="••••••••••••"
+              placeholder="Your password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -61,8 +75,10 @@ export default function Login() {
           </div>
         </div>
 
-        <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-          Log In
+        {error && <p className="form-error" role="alert">{error}</p>}
+
+        <button type="submit" className="btn btn-primary" disabled={!canSubmit || submitting}>
+          {submitting ? "Logging in..." : "Log In"}
         </button>
       </form>
 

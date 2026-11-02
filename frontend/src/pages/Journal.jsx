@@ -1,17 +1,22 @@
 import { useMemo, useState } from "react";
-import { useApp, MOODS, fmt } from "../context/AppContext.jsx";
+import { MOODS } from "../context/AppContext.jsx";
+import { api, errorMessage } from "../api/client.js";
+import { useAsync } from "../api/useAsync.js";
+import { formatShortDate, toISODate } from "../lib/dates.js";
 import { IconArrowLeft, IconArrowRight, IconPlus, IconPencil, IconClose } from "../components/Icons.jsx";
+import SupportAlert from "../components/SupportAlert.jsx";
+import { useSupportAlert } from "../api/useSupportAlert.js";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
 const DOW = ["M", "T", "W", "T", "F", "S", "S"];
-const TAG_OPTIONS = ["Sleep", "Health", "Work", "Relationships", "Stress", "Self-care"];
+const TAG_OPTIONS = ["Fun", "Sleep", "Health", "Work", "Relationships", "Stress", "Self-care"];
+const PERIODS = ["Morning entry", "Afternoon entry", "Evening entry"];
 
 function buildMonthGrid(year, month) {
-  const first = new Date(year, month, 1);
-  const startOffset = (first.getDay() + 6) % 7; // Monday = 0
+  const startOffset = (new Date(year, month, 1).getDay() + 6) % 7; // Monday = 0
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells = [];
   for (let i = 0; i < startOffset; i++) cells.push(null);
@@ -19,32 +24,57 @@ function buildMonthGrid(year, month) {
   return cells;
 }
 
-function moodEmoji(mood) {
-  return MOODS.find((m) => m.key === mood)?.emoji ?? "🙂";
-}
-
-function displayDate(iso) {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
+const moodEmoji = (mood) => MOODS.find((m) => m.key === mood)?.emoji ?? "🙂";
 
 export default function Journal() {
-  const { state, addJournalEntry, logMood } = useApp();
-  const today = new Date();
-  const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [modalDate, setModalDate] = useState(null);
+  const todayKey = toISODate();
+  const now = new Date();
+  const [cursor, setCursor] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
+  const [modal, setModal] = useState(null); // { date, entry? }
+  const supportAlert = useSupportAlert();
+
+  const moodsReq = useAsync(() => api.get("/moods"), []);
+  const journalReq = useAsync(() => api.get("/journal"), []);
+
+  // The calendar shows the journal text itself, so it needs every entry in the month being displayed.
+  const monthFrom = toISODate(new Date(cursor.getFullYear(), cursor.getMonth(), 1));
+  const monthTo = toISODate(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0));
+  const monthReq = useAsync(() => api.get(`/journal?from=${monthFrom}&to=${monthTo}&limit=200`), [monthFrom, monthTo]);
+  const entriesByDate = useMemo(() => {
+    const map = {};
+    (monthReq.data?.entries ?? []).forEach((e) => {
+      (map[e.date] ??= []).push(e); // newest first, as the API returns them
+    });
+    return map;
+  }, [monthReq.data]);
 
   const cells = useMemo(() => buildMonthGrid(cursor.getFullYear(), cursor.getMonth()), [cursor]);
-  const todayKey = fmt(today);
-
   const moodByDate = useMemo(() => {
     const map = {};
-    state.moodEntries.forEach((m) => (map[m.date] = m.mood));
+    (moodsReq.data?.moods ?? []).forEach((m) => (map[m.date] = m.mood));
     return map;
-  }, [state.moodEntries]);
+  }, [moodsReq.data]);
+  const entries = journalReq.data?.entries ?? [];
 
-  const changeMonth = (delta) => {
-    setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
+  const changeMonth = (delta) => setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
+
+  const handleSave = async (payload) => {
+    const body = { date: modal.date, ...payload };
+    if (modal.entry) await api.put(`/journal/${modal.entry.id}`, body);
+    else await api.post("/journal", body);
+    await api.put(`/moods/${modal.date}`, { mood: payload.mood });
+    moodsReq.reload();
+    journalReq.reload();
+    monthReq.reload();
+    setModal(null);
+    supportAlert.check();
+  };
+
+  const handleDelete = async () => {
+    await api.del(`/journal/${modal.entry.id}`);
+    journalReq.reload();
+    monthReq.reload();
+    setModal(null);
   };
 
   return (
@@ -54,7 +84,7 @@ export default function Journal() {
           <h1>Your Mood Map</h1>
           <p>A reflection of your emotional path.</p>
         </div>
-        <button className="pill-btn" onClick={() => setModalDate(todayKey)}>
+        <button className="pill-btn" onClick={() => setModal({ date: todayKey })}>
           <IconPlus width={16} height={16} /> Entry
         </button>
       </div>
@@ -74,8 +104,10 @@ export default function Journal() {
           ))}
           {cells.map((day, i) => {
             if (!day) return <div className="cal-cell cal-cell--empty" key={i} />;
-            const key = fmt(new Date(cursor.getFullYear(), cursor.getMonth(), day));
+            const key = toISODate(new Date(cursor.getFullYear(), cursor.getMonth(), day));
             const mood = moodByDate[key];
+            const dayEntries = entriesByDate[key] ?? [];
+            const latest = dayEntries[0];
             return (
               <button
                 key={i}
@@ -84,31 +116,39 @@ export default function Journal() {
                   (mood ? ` cal-cell--filled mood-${mood}` : "") +
                   (key === todayKey ? " cal-cell--today" : "")
                 }
-                onClick={() => setModalDate(key)}
-                title={key}
-              />
+                onClick={() => setModal({ date: key, entry: latest })}
+                title={latest ? latest.text || "Edit entry" : `Add entry for ${formatShortDate(key)}`}
+                aria-label={latest ? `Edit entry for ${formatShortDate(key)}${latest.text ? `: ${latest.text}` : ""}` : `Add entry for ${formatShortDate(key)}`}
+              >
+                <span className="cal-day">{day}</span>
+                {latest?.text && <span className="cal-note">{latest.text}</span>}
+                {dayEntries.length > 1 && <span className="cal-more">+{dayEntries.length - 1}</span>}
+              </button>
             );
           })}
         </div>
       </div>
 
       <h2 className="section-title">Recent Insights</h2>
-      {state.journalEntries.length === 0 && (
+      {(moodsReq.error || journalReq.error) && (
+        <p className="form-error" role="alert">{(moodsReq.error || journalReq.error).message}</p>
+      )}
+      {!journalReq.loading && entries.length === 0 && (
         <p className="empty-state">No entries yet. Tap + Entry to write your first reflection.</p>
       )}
       <div className="stack">
-        {state.journalEntries.map((entry) => (
+        {entries.map((entry) => (
           <div className="card insight-card" key={entry.id}>
             <div className="card-head-row">
               <div className="insight-meta">
                 <span className={`insight-emoji mood-${entry.mood}`}>{moodEmoji(entry.mood)}</span>
-                {displayDate(entry.date)} · {entry.period}
+                {formatShortDate(entry.date)} · {entry.period}
               </div>
-              <button className="edit-btn" onClick={() => setModalDate(entry.date)} aria-label="Edit entry">
+              <button className="edit-btn" onClick={() => setModal({ date: entry.date, entry })} aria-label="Edit entry">
                 <IconPencil />
               </button>
             </div>
-            <p className="insight-text">{entry.text}</p>
+            {entry.text && <p className="insight-text">{entry.text}</p>}
             <div className="tag-row">
               {entry.tags.map((t) => (
                 <span className="tag" key={t}>{t}</span>
@@ -118,44 +158,49 @@ export default function Journal() {
         ))}
       </div>
 
-      {modalDate && (
+      {modal && (
         <EntryModal
-          date={modalDate}
-          existingMood={moodByDate[modalDate]}
-          onClose={() => setModalDate(null)}
-          onSave={(payload) => {
-            logMood(payload.mood, modalDate);
-            addJournalEntry({
-              date: modalDate,
-              period: payload.period,
-              mood: payload.mood,
-              text: payload.text,
-              tags: payload.tags,
-            });
-            setModalDate(null);
-          }}
+          date={modal.date}
+          entry={modal.entry}
+          existingMood={moodByDate[modal.date]}
+          onClose={() => setModal(null)}
+          onSave={handleSave}
+          onDelete={handleDelete}
         />
       )}
+
+      <SupportAlert guidance={supportAlert.alert} onClose={supportAlert.dismiss} />
     </div>
   );
 }
 
-function EntryModal({ date, existingMood, onClose, onSave }) {
-  const [mood, setMood] = useState(existingMood ?? "good");
-  const [text, setText] = useState("");
-  const [tags, setTags] = useState([]);
-  const [period, setPeriod] = useState("Evening entry");
+function EntryModal({ date, entry, existingMood, onClose, onSave, onDelete }) {
+  const [mood, setMood] = useState(entry?.mood ?? existingMood ?? "good");
+  const [text, setText] = useState(entry?.text ?? "");
+  const [tags, setTags] = useState(entry?.tags ?? []);
+  const [period, setPeriod] = useState(entry?.period ?? "Evening entry");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const toggleTag = (t) => {
-    setTags((arr) => (arr.includes(t) ? arr.filter((x) => x !== t) : [...arr, t]));
+  const toggleTag = (t) => setTags((arr) => (arr.includes(t) ? arr.filter((x) => x !== t) : [...arr, t]));
+
+  const run = async (action) => {
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
   };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-row">
-          <h2>New Entry · {displayDate(date)}</h2>
-          <button className="close-x" onClick={onClose}><IconClose /></button>
+          <h2>{entry ? "Edit Entry" : "New Entry"} · {formatShortDate(date)}</h2>
+          <button className="close-x" onClick={onClose} aria-label="Close"><IconClose /></button>
         </div>
 
         <div className="field">
@@ -178,7 +223,7 @@ function EntryModal({ date, existingMood, onClose, onSave }) {
         <div className="field">
           <label>When was this?</label>
           <div className="chip-select">
-            {["Morning entry", "Afternoon entry", "Evening entry"].map((p) => (
+            {PERIODS.map((p) => (
               <button
                 key={p}
                 type="button"
@@ -192,10 +237,11 @@ function EntryModal({ date, existingMood, onClose, onSave }) {
         </div>
 
         <div className="field">
-          <label>What's on your mind?</label>
+          <label>What's on your mind? (optional)</label>
           <textarea
             className="textarea"
             placeholder="Write a few honest lines..."
+            maxLength={5000}
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
@@ -217,13 +263,22 @@ function EntryModal({ date, existingMood, onClose, onSave }) {
           </div>
         </div>
 
-        <button
-          className="btn btn-primary"
-          disabled={!text.trim()}
-          onClick={() => onSave({ mood, text: text.trim(), tags, period })}
-        >
-          Save Entry
-        </button>
+        {error && <p className="form-error" role="alert">{error}</p>}
+
+        <div className="btn-row">
+          {entry && (
+            <button className="btn btn-secondary" disabled={busy} onClick={() => run(onDelete)}>
+              Delete
+            </button>
+          )}
+          <button
+            className="btn btn-primary"
+            disabled={busy}
+            onClick={() => run(() => onSave({ mood, text: text.trim(), tags, period }))}
+          >
+            {busy ? "Saving..." : "Save Entry"}
+          </button>
+        </div>
       </div>
     </div>
   );
