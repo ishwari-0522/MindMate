@@ -86,6 +86,7 @@ chatMessageSchema.index({ userId: 1, createdAt: 1 });
 const clinicianSchema = new Schema(
   {
     name: { type: String, required: true, unique: true },
+    city: { type: String, default: "Mumbai" },
     specialty: { type: String, required: true },
     tags: { type: [String], default: [] },
     rating: { type: Number, default: 0 },

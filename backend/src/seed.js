@@ -5,27 +5,30 @@ import { COPING_EXERCISES } from "./data/copingExercises.js";
 
 const CLINICIANS = [
   {
-    name: "Dr. Elena Rostova",
+    name: "Dr. Ananya Deshmukh",
+    city: "Mumbai",
     specialty: "Anxiety & Somatic Trauma",
     tags: ["Anxiety", "Stress"],
     rating: 4.9,
     reviewCount: "1.2k",
-    initials: "E",
+    initials: "A",
     color: "var(--accent-blue)",
     slotTimes: ["09:00", "10:30", "13:00", "15:30"],
   },
   {
-    name: "Marcus Vance, LCSW",
+    name: "Dr. Rohan Kulkarni",
+    city: "Mumbai",
     specialty: "Mindfulness & Stress Management",
     tags: ["Stress", "Depression"],
     rating: 4.8,
     reviewCount: "940",
-    initials: "M",
+    initials: "R",
     color: "var(--accent-peach)",
     slotTimes: ["09:00", "10:30", "13:00", "15:30"],
   },
   {
     name: "Dr. Priya Nair",
+    city: "Mumbai",
     specialty: "Grief & Life Transitions",
     tags: ["Grief", "Depression"],
     rating: 4.9,
@@ -35,22 +38,24 @@ const CLINICIANS = [
     slotTimes: ["09:00", "10:30", "13:00", "15:30"],
   },
   {
-    name: "Dr. Samuel Okafor",
+    name: "Dr. Imran Shaikh",
+    city: "Mumbai",
     specialty: "Panic & Generalized Anxiety",
     tags: ["Anxiety"],
     rating: 4.7,
     reviewCount: "510",
-    initials: "S",
+    initials: "I",
     color: "var(--mood-great-bg)",
     slotTimes: ["10:30", "13:00", "15:30", "17:00"],
   },
 ];
 
-// Idempotent: safe to run on every start.
+// Idempotent: safe to run on every start. The list above is the source of truth, so anyone no longer in it is removed.
 export async function seedClinicians() {
   for (const c of CLINICIANS) {
     await Clinician.updateOne({ name: c.name }, { $set: c }, { upsert: true });
   }
+  await Clinician.deleteMany({ name: { $nin: CLINICIANS.map((c) => c.name) } });
 }
 
 // Support resources and coping exercises are admin-managed content, so the data files are the source of truth:

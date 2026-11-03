@@ -49,6 +49,7 @@ router.get("/", async (req, res) => {
       id: c._id.toString(),
       name: c.name,
       specialty: c.specialty,
+      city: c.city,
       tags: c.tags,
       rating: c.rating,
       reviewCount: c.reviewCount,

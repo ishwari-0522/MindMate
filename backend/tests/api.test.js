@@ -249,11 +249,11 @@ describe("clinicians and bookings", () => {
   it("books a slot, blocks double-booking, and frees the slot on cancel", async () => {
     const a = await signedInAgent();
     const b = await signedInAgent();
-    const clinician = await Clinician.findOne({ name: "Dr. Elena Rostova" });
+    const clinician = await Clinician.findOne({ name: "Dr. Ananya Deshmukh" });
     const body = { clinicianId: clinician.id, date: futureDay, time: "13:00", category: "Anxiety", now };
 
     const booked = await a.agent.post("/api/bookings").send(body).expect(201);
-    expect(booked.body.booking).toMatchObject({ clinicianName: "Dr. Elena Rostova", label: "1:00 PM" });
+    expect(booked.body.booking).toMatchObject({ clinicianName: "Dr. Ananya Deshmukh", label: "1:00 PM" });
 
     await b.agent.post("/api/bookings").send(body).expect(409);
 
@@ -269,7 +269,7 @@ describe("clinicians and bookings", () => {
 
   it("rejects past times, unknown times and mismatched categories", async () => {
     const { agent } = await signedInAgent();
-    const clinician = await Clinician.findOne({ name: "Dr. Elena Rostova" });
+    const clinician = await Clinician.findOne({ name: "Dr. Ananya Deshmukh" });
     const base = { clinicianId: clinician.id, date: futureDay, time: "09:00", category: "Anxiety", now };
     await agent.post("/api/bookings").send({ ...base, date: daysAgo(1) }).expect(400);
     await agent.post("/api/bookings").send({ ...base, now: `${futureDay}T10:00` }).expect(400);

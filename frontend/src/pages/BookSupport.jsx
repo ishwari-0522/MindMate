@@ -116,7 +116,7 @@ export default function BookSupport() {
               <div className="avatar" style={{ background: c.color }}>{c.initials}</div>
               <div>
                 <h4>{c.name}</h4>
-                <p>{c.specialty}</p>
+                <p>{c.specialty} · {c.city}</p>
               </div>
             </div>
             <div className="clinician-meta">
